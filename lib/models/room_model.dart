@@ -10,6 +10,8 @@ class RoomModel {
   final String currentTargetRole;
   final List<String> completedRoles;
   final int round;
+  final int currentRound;
+  final int roundsTotal;
   final Map<String, dynamic>? lastAction;
   final String? lastActionMessage;
   final DateTime? createdAt;
@@ -24,12 +26,24 @@ class RoomModel {
     required this.currentTargetRole,
     required this.completedRoles,
     required this.round,
+    required this.currentRound,
+    required this.roundsTotal,
     this.lastAction,
     this.lastActionMessage,
     this.createdAt,
   });
 
   factory RoomModel.fromMap(String id, Map<String, dynamic> map) {
+    final parsedCurrentRound = (map['currentRound'] is int)
+        ? map['currentRound'] as int
+        : (map['round'] is int)
+            ? map['round'] as int
+            : int.tryParse(map['currentRound']?.toString() ?? map['round']?.toString() ?? '1') ?? 1;
+
+    final parsedRoundsTotal = (map['roundsTotal'] is int)
+        ? map['roundsTotal'] as int
+        : int.tryParse(map['roundsTotal']?.toString() ?? '3') ?? 3;
+
     return RoomModel(
       roomId: id,
       hostId: map['hostId']?.toString() ?? '',
@@ -44,9 +58,9 @@ class RoomModel {
       completedRoles: List<String>.from(
         (map['completedRoles'] as List<dynamic>?)?.map((e) => e.toString()) ?? [],
       ),
-      round: (map['round'] is int)
-          ? map['round'] as int
-          : int.tryParse(map['round']?.toString() ?? '0') ?? 0,
+      round: parsedCurrentRound,
+      currentRound: parsedCurrentRound,
+      roundsTotal: parsedRoundsTotal,
       lastAction: map['lastAction'] is Map<String, dynamic>
           ? map['lastAction'] as Map<String, dynamic>
           : null,
@@ -66,7 +80,9 @@ class RoomModel {
       'currentRole': currentRole,
       'currentTargetRole': currentTargetRole,
       'completedRoles': completedRoles,
-      'round': round,
+      'round': currentRound,
+      'currentRound': currentRound,
+      'roundsTotal': roundsTotal,
       'lastAction': lastAction,
       'lastActionMessage': lastActionMessage,
       'createdAt': createdAt,

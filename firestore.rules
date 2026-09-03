@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users full read/write access to room documents and all subcollections (players, rounds)
+    match /rooms/{roomId} {
+      allow read, write: if request.auth != null;
+
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}

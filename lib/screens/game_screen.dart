@@ -66,117 +66,175 @@ class _GameScreenState extends State<GameScreen> {
     final roomRef =
         FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Raja Rani Game'),
-        centerTitle: true,
-        backgroundColor: Colors.indigo.shade800,
-        foregroundColor: Colors.white,
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            onSelected: (value) {
-              if (value == 'toggle_dev_mode') {
-                setState(() {
-                  _isDevTestMode = !_isDevTestMode;
-                  if (!_isDevTestMode) {
-                    _isAllPlayersTestView = false;
-                    final currentUid = FirebaseAuth.instance.currentUser?.uid;
-                    if (currentUid != null) {
-                      _selectedPlayerId = currentUid;
-                    }
-                  }
-                });
-              } else if (value == 'toggle_all_view') {
-                setState(() {
-                  _isAllPlayersTestView = !_isAllPlayersTestView;
-                });
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'toggle_dev_mode',
-                child: Row(
-                  children: [
-                    Icon(
-                      _isDevTestMode ? Icons.build_circle : Icons.build,
-                      color: Colors.indigo,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(_isDevTestMode
-                        ? 'Disable Dev Test Mode'
-                        : 'Enable Dev Test Mode'),
-                  ],
-                ),
-              ),
-              if (_isDevTestMode)
-                PopupMenuItem(
-                  value: 'toggle_all_view',
-                  child: Row(
-                    children: [
-                      Icon(
-                        _isAllPlayersTestView
-                            ? Icons.person_pin
-                            : Icons.grid_view_rounded,
-                        color: Colors.indigo,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(_isAllPlayersTestView
-                          ? 'Single Player View'
-                          : 'All 6 Players View'),
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ],
-      ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: roomRef.snapshots(),
-        builder: (context, roomSnapshot) {
-          if (roomSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    return StreamBuilder<DocumentSnapshot>(
+      stream: roomRef.snapshots(),
+      builder: (context, roomSnapshot) {
+        if (roomSnapshot.connectionState == ConnectionState.waiting) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Raja Rani Game'),
+              centerTitle: true,
+              backgroundColor: Colors.indigo.shade800,
+              foregroundColor: Colors.white,
+            ),
+            body: const Center(child: CircularProgressIndicator()),
+          );
+        }
 
-          if (roomSnapshot.hasError) {
-            return Center(
+        if (roomSnapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Raja Rani Game'),
+              centerTitle: true,
+              backgroundColor: Colors.indigo.shade800,
+              foregroundColor: Colors.white,
+            ),
+            body: Center(
               child: Text(
                 'Error loading room:\n${roomSnapshot.error}',
                 textAlign: TextAlign.center,
               ),
-            );
-          }
-
-          if (!roomSnapshot.hasData || !roomSnapshot.data!.exists) {
-            return const Center(child: Text('Room not found.'));
-          }
-
-          final roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
-
-          final String status = roomData['status']?.toString() ?? 'waiting';
-          final String currentTurnPlayerId =
-              roomData['currentTurnPlayerId']?.toString() ??
-              roomData['currentRajaId']?.toString() ??
-              '';
-          final String currentRole =
-              roomData['currentRole']?.toString() ?? 'Raja';
-          final String currentTargetRole =
-              roomData['currentTargetRole']?.toString() ?? 'Rani';
-          final List<String> completedRoles = List<String>.from(
-            (roomData['completedRoles'] as List<dynamic>?)
-                    ?.map((e) => e.toString()) ??
-                [],
+            ),
           );
-          final Map<String, dynamic>? lastAction =
-              roomData['lastAction'] is Map<String, dynamic>
-                  ? roomData['lastAction'] as Map<String, dynamic>
-                  : null;
-          final String? lastActionMessage =
-              roomData['lastActionMessage']?.toString();
+        }
 
-          return StreamBuilder<QuerySnapshot>(
+        if (!roomSnapshot.hasData || !roomSnapshot.data!.exists) {
+          return Scaffold(
+            appBar: AppBar(
+              title: const Text('Raja Rani Game'),
+              centerTitle: true,
+              backgroundColor: Colors.indigo.shade800,
+              foregroundColor: Colors.white,
+            ),
+            body: const Center(child: Text('Room not found.')),
+          );
+        }
+
+        final roomData = roomSnapshot.data!.data() as Map<String, dynamic>;
+
+        final String status = roomData['status']?.toString() ?? 'waiting';
+        final String currentTurnPlayerId =
+            roomData['currentTurnPlayerId']?.toString() ??
+            roomData['currentRajaId']?.toString() ??
+            '';
+        final String currentRole =
+            roomData['currentRole']?.toString() ?? 'Raja';
+        final String currentTargetRole =
+            roomData['currentTargetRole']?.toString() ?? 'Rani';
+        final List<String> completedRoles = List<String>.from(
+          (roomData['completedRoles'] as List<dynamic>?)
+                  ?.map((e) => e.toString()) ??
+              [],
+        );
+        final Map<String, dynamic>? lastAction =
+            roomData['lastAction'] is Map<String, dynamic>
+                ? roomData['lastAction'] as Map<String, dynamic>
+                : null;
+        final String? lastActionMessage =
+            roomData['lastActionMessage']?.toString();
+
+        final int currentRound = (roomData['currentRound'] is int)
+            ? roomData['currentRound'] as int
+            : (roomData['round'] is int)
+                ? roomData['round'] as int
+                : int.tryParse(roomData['currentRound']?.toString() ?? roomData['round']?.toString() ?? '1') ?? 1;
+
+        final int roundsTotal = (roomData['roundsTotal'] is int)
+            ? roomData['roundsTotal'] as int
+            : int.tryParse(roomData['roundsTotal']?.toString() ?? '3') ?? 3;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Raja Rani Game',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Container(
+                  margin: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade700,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'ROUND $currentRound / $roundsTotal',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            centerTitle: true,
+            backgroundColor: Colors.indigo.shade800,
+            foregroundColor: Colors.white,
+            actions: [
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert),
+                onSelected: (value) {
+                  if (value == 'toggle_dev_mode') {
+                    setState(() {
+                      _isDevTestMode = !_isDevTestMode;
+                      if (!_isDevTestMode) {
+                        _isAllPlayersTestView = false;
+                        final currentUid =
+                            FirebaseAuth.instance.currentUser?.uid;
+                        if (currentUid != null) {
+                          _selectedPlayerId = currentUid;
+                        }
+                      }
+                    });
+                  } else if (value == 'toggle_all_view') {
+                    setState(() {
+                      _isAllPlayersTestView = !_isAllPlayersTestView;
+                    });
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'toggle_dev_mode',
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isDevTestMode ? Icons.build_circle : Icons.build,
+                          color: Colors.indigo,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(_isDevTestMode
+                            ? 'Disable Dev Test Mode'
+                            : 'Enable Dev Test Mode'),
+                      ],
+                    ),
+                  ),
+                  if (_isDevTestMode)
+                    PopupMenuItem(
+                      value: 'toggle_all_view',
+                      child: Row(
+                        children: [
+                          Icon(
+                            _isAllPlayersTestView
+                                ? Icons.person_pin
+                                : Icons.grid_view_rounded,
+                            color: Colors.indigo,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(_isAllPlayersTestView
+                              ? 'Single Player View'
+                              : 'All 6 Players View'),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+          ),
+          body: StreamBuilder<QuerySnapshot>(
             stream: roomRef
                 .collection('players')
                 .orderBy('joinedAt')
@@ -201,8 +259,23 @@ class _GameScreenState extends State<GameScreen> {
                 return const Center(child: Text('No players found.'));
               }
 
+              if (status == 'round_result') {
+                return _buildRoundResultScreen(
+                  context,
+                  players,
+                  roomData,
+                  currentRound,
+                  roundsTotal,
+                );
+              }
+
               if (status == 'completed') {
-                return _buildCompletedScreen(context, players, roomData);
+                return _buildFinalScoreboardScreen(
+                  context,
+                  players,
+                  roomData,
+                  roundsTotal,
+                );
               }
 
               // Multi-Device Mode: Default to current authenticated user's ID
@@ -230,6 +303,9 @@ class _GameScreenState extends State<GameScreen> {
               final selectedPoints = (selectedData['rolePoints'] is int)
                   ? selectedData['rolePoints'] as int
                   : int.tryParse(selectedData['rolePoints']?.toString() ?? '0') ?? 0;
+              final selectedRoundScore = (selectedData['roundScore'] is int)
+                  ? selectedData['roundScore'] as int
+                  : int.tryParse(selectedData['roundScore']?.toString() ?? '0') ?? 0;
               final selectedScore = (selectedData['score'] is int)
                   ? selectedData['score'] as int
                   : int.tryParse(selectedData['score']?.toString() ?? '0') ?? 0;
@@ -248,6 +324,8 @@ class _GameScreenState extends State<GameScreen> {
                   completedRoles: completedRoles,
                   lastAction: lastAction,
                   lastActionMessage: lastActionMessage,
+                  currentRound: currentRound,
+                  roundsTotal: roundsTotal,
                 );
               }
 
@@ -258,6 +336,7 @@ class _GameScreenState extends State<GameScreen> {
                 selectedPlayerName: selectedName,
                 selectedRole: selectedRole,
                 selectedPoints: selectedPoints,
+                selectedRoundScore: selectedRoundScore,
                 selectedScore: selectedScore,
                 isMyTurn: isMyTurn,
                 currentTurnPlayerId: currentTurnPlayerId,
@@ -267,12 +346,521 @@ class _GameScreenState extends State<GameScreen> {
                 completedRoles: completedRoles,
                 lastAction: lastAction,
                 lastActionMessage: lastActionMessage,
+                currentRound: currentRound,
+                roundsTotal: roundsTotal,
               );
             },
-          );
-        },
+          ),
+        );
+      },
+    );
+  }
+
+  // --------------------------------------------------------------------------
+  // ROUND RESULT SCREEN (Displayed to all players at end of each round)
+  // --------------------------------------------------------------------------
+  Widget _buildRoundResultScreen(
+    BuildContext context,
+    List<QueryDocumentSnapshot> players,
+    Map<String, dynamic> roomData,
+    int currentRound,
+    int roundsTotal,
+  ) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isHost = players.isNotEmpty && players.first.id == currentUser?.uid;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            Card(
+              color: Colors.indigo.shade800,
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    const Icon(Icons.stars_rounded, size: 50, color: Colors.amber),
+                    const SizedBox(height: 8),
+                    Text(
+                      'ROUND $currentRound RESULT',
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.5,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Round $currentRound of $roundsTotal completed',
+                      style: TextStyle(fontSize: 14, color: Colors.indigo.shade100),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+
+            Card(
+              elevation: 3,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'ROUND SCOREBOARD',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const Divider(height: 20),
+                    Table(
+                      columnWidths: const {
+                        0: FlexColumnWidth(2.5),
+                        1: FlexColumnWidth(1.5),
+                        2: FlexColumnWidth(1.5),
+                      },
+                      children: [
+                        const TableRow(
+                          children: [
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                'Player',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                'Round Score',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                            Padding(
+                              padding: EdgeInsets.symmetric(vertical: 8),
+                              child: Text(
+                                'Overall Score',
+                                textAlign: TextAlign.right,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        ...players.map((playerDoc) {
+                          final data = playerDoc.data() as Map<String, dynamic>;
+                          final name = data['name']?.toString() ?? 'Player';
+                          final role = data['role']?.toString() ?? '';
+                          final roundScore = (data['roundScore'] is int)
+                              ? data['roundScore'] as int
+                              : int.tryParse(data['roundScore']?.toString() ?? '0') ?? 0;
+                          final overallScore = (data['score'] is int)
+                              ? data['score'] as int
+                              : int.tryParse(data['score']?.toString() ?? '0') ?? 0;
+
+                          return TableRow(
+                            children: [
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      name,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 15,
+                                      ),
+                                    ),
+                                    if (role.isNotEmpty)
+                                      Text(
+                                        role.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Text(
+                                  '+$roundScore',
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 10),
+                                child: Text(
+                                  '$overallScore',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            if (isHost || _isDevTestMode)
+              SizedBox(
+                width: double.infinity,
+                height: 54,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.indigo,
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    try {
+                      await _roomService.startNextRound(roomId: widget.roomId);
+                    } catch (e) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Error starting next round: $e')),
+                      );
+                    }
+                  },
+                  icon: const Icon(Icons.play_arrow),
+                  label: Text(
+                    'START ROUND ${currentRound + 1} OF $roundsTotal',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(16),
+                alignment: Alignment.center,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.5),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      'Waiting for host to start Round ${currentRound + 1}...',
+                      style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
+  }
+
+  // --------------------------------------------------------------------------
+  // FINAL SCOREBOARD & WINNER SCREEN
+  // --------------------------------------------------------------------------
+  Widget _buildFinalScoreboardScreen(
+    BuildContext context,
+    List<QueryDocumentSnapshot> playersSnapshotDocs,
+    Map<String, dynamic> roomData,
+    int roundsTotal,
+  ) {
+    final Map<String, String> playerNames = {};
+    final Map<String, Map<int, int>> playerRoundScores = {};
+    final Map<String, int> playerTotalScores = {};
+
+    for (final pDoc in playersSnapshotDocs) {
+      final pData = pDoc.data() as Map<String, dynamic>;
+      final pId = pDoc.id;
+      final pName = pData['name']?.toString() ?? 'Player';
+      final pScore = (pData['score'] is int)
+          ? pData['score'] as int
+          : int.tryParse(pData['score']?.toString() ?? '0') ?? 0;
+
+      playerNames[pId] = pName;
+      playerRoundScores[pId] = {};
+      playerTotalScores[pId] = pScore;
+    }
+
+    final Map<String, dynamic> roundHistoryMap =
+        (roomData['roundHistory'] is Map<String, dynamic>)
+            ? roomData['roundHistory'] as Map<String, dynamic>
+            : {};
+
+    int maxRoundNumber = roundsTotal;
+
+    roundHistoryMap.forEach((key, value) {
+      if (value is Map<String, dynamic>) {
+        final int rNum = (value['roundNumber'] is int)
+            ? value['roundNumber'] as int
+            : int.tryParse(value['roundNumber']?.toString() ?? '1') ?? 1;
+
+        if (rNum > maxRoundNumber) maxRoundNumber = rNum;
+
+        final rPlayers = value['players'] as List<dynamic>? ?? [];
+
+        for (final pItem in rPlayers) {
+          if (pItem is Map<String, dynamic>) {
+            final pId = pItem['playerId']?.toString() ?? '';
+            final pName = pItem['name']?.toString() ?? '';
+            final rScore = (pItem['roundScore'] is int)
+                ? pItem['roundScore'] as int
+                : int.tryParse(pItem['roundScore']?.toString() ?? '0') ?? 0;
+
+            if (pId.isNotEmpty) {
+              if (pName.isNotEmpty) playerNames[pId] = pName;
+              playerRoundScores.putIfAbsent(pId, () => {})[rNum] = rScore;
+            }
+          }
+        }
+      }
+    });
+
+    // Sort players by Total Score DESC
+    final sortedPlayerIds = playerNames.keys.toList()
+      ..sort((a, b) {
+        final scoreA = playerTotalScores[a] ?? 0;
+        final scoreB = playerTotalScores[b] ?? 0;
+        if (scoreB != scoreA) {
+          return scoreB.compareTo(scoreA);
+        }
+        return (playerNames[a] ?? '').compareTo(playerNames[b] ?? '');
+      });
+
+    final winnerId = sortedPlayerIds.isNotEmpty ? sortedPlayerIds.first : '';
+    final winnerName = playerNames[winnerId] ?? 'Player';
+    final winnerScore = playerTotalScores[winnerId] ?? 0;
+
+    final int actualRoundCount = maxRoundNumber;
+
+        return SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                // WINNER CARD
+                Card(
+                  color: Colors.amber.shade700,
+                  elevation: 6,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        const Text(
+                          '🏆 WINNER',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 3,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const CircleAvatar(
+                          radius: 36,
+                          backgroundColor: Colors.white,
+                          child: Icon(Icons.emoji_events, size: 44, color: Colors.amber),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          winnerName,
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Total Score: $winnerScore',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 20),
+
+                // FINAL SCOREBOARD TABLE CARD
+                Card(
+                  elevation: 4,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.leaderboard, color: Colors.indigo),
+                            SizedBox(width: 8),
+                            Text(
+                              '🏆 FINAL SCOREBOARD',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 20),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: DataTable(
+                            columnSpacing: 16,
+                            headingRowHeight: 40,
+                            columns: [
+                              const DataColumn(
+                                label: Text('Rank', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              const DataColumn(
+                                label: Text('Player', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                              ...List.generate(actualRoundCount, (index) {
+                                return DataColumn(
+                                  label: Text(
+                                    'Round ${index + 1}',
+                                    style: const TextStyle(fontWeight: FontWeight.bold),
+                                  ),
+                                );
+                              }),
+                              const DataColumn(
+                                label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                            rows: sortedPlayerIds.asMap().entries.map((entry) {
+                              final rank = entry.key + 1;
+                              final pId = entry.value;
+                              final pName = playerNames[pId] ?? 'Player';
+                              final pTotal = playerTotalScores[pId] ?? 0;
+                              final pRoundsMap = playerRoundScores[pId] ?? {};
+
+                              String medal = '';
+                              if (rank == 1) medal = '🥇 ';
+                              if (rank == 2) medal = '🥈 ';
+                              if (rank == 3) medal = '🥉 ';
+
+                              return DataRow(
+                                cells: [
+                                  DataCell(
+                                    Text(
+                                      '$medal#$rank',
+                                      style: TextStyle(
+                                        fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                  DataCell(
+                                    Text(
+                                      pName,
+                                      style: TextStyle(
+                                        fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
+                                      ),
+                                    ),
+                                  ),
+                                  ...List.generate(actualRoundCount, (index) {
+                                    final rNum = index + 1;
+                                    final rScore = pRoundsMap[rNum] ?? 0;
+                                    return DataCell(Text('+$rScore'));
+                                  }),
+                                  DataCell(
+                                    Text(
+                                      '$pTotal',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.green,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }).toList(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.indigo,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text(
+                      'BACK TO LOBBY',
+                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
   }
 
   // --------------------------------------------------------------------------
@@ -287,6 +875,8 @@ class _GameScreenState extends State<GameScreen> {
     required List<String> completedRoles,
     required Map<String, dynamic>? lastAction,
     required String? lastActionMessage,
+    required int currentRound,
+    required int roundsTotal,
   }) {
     return SafeArea(
       child: SingleChildScrollView(
@@ -311,14 +901,34 @@ class _GameScreenState extends State<GameScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
-                            'ALL 6 PLAYERS TEST DASHBOARD',
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                              color: Colors.black87,
-                            ),
+                          Row(
+                            children: [
+                              const Text(
+                                'ALL 6 PLAYERS DASHBOARD',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.indigo,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  'ROUND $currentRound / $roundsTotal',
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
@@ -398,6 +1008,7 @@ class _GameScreenState extends State<GameScreen> {
               final score = (data['score'] is int)
                   ? data['score'] as int
                   : int.tryParse(data['score']?.toString() ?? '0') ?? 0;
+
               final isTurn = playerId == currentTurnPlayerId;
               final isCompleted = completedRoles
                   .map((r) => r.toLowerCase())
@@ -499,7 +1110,7 @@ class _GameScreenState extends State<GameScreen> {
                                   ],
                                 ),
                                 Text(
-                                  'Role: ${role.toUpperCase()} ($rolePoints pts) | Score: $score pts',
+                                  'Role: ${role.toUpperCase()} ($rolePoints pts) | Total Score: $score pts',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: roleColor,
@@ -583,6 +1194,7 @@ class _GameScreenState extends State<GameScreen> {
     required String selectedPlayerName,
     required String selectedRole,
     required int selectedPoints,
+    required int selectedRoundScore,
     required int selectedScore,
     required bool isMyTurn,
     required String currentTurnPlayerId,
@@ -592,6 +1204,8 @@ class _GameScreenState extends State<GameScreen> {
     required List<String> completedRoles,
     required Map<String, dynamic>? lastAction,
     required String? lastActionMessage,
+    required int currentRound,
+    required int roundsTotal,
   }) {
     final roleIcon = _getRoleIcon(selectedRole);
     final roleColor = _getRoleColor(selectedRole);
@@ -787,7 +1401,29 @@ class _GameScreenState extends State<GameScreen> {
                         Column(
                           children: [
                             const Text(
-                              'Earned Score',
+                              'Round Score',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '+$selectedRoundScore',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.amber.shade900,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Container(
+                            height: 30, width: 1, color: Colors.grey.shade400),
+                        Column(
+                          children: [
+                            const Text(
+                              'Total Score',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.black54,
@@ -1242,166 +1878,6 @@ class _GameScreenState extends State<GameScreen> {
         });
       }
     }
-  }
-
-  Widget _buildCompletedScreen(
-    BuildContext context,
-    List<QueryDocumentSnapshot> players,
-    Map<String, dynamic> roomData,
-  ) {
-    // Sort players by score descending
-    final sortedPlayers = List<QueryDocumentSnapshot>.from(players)
-      ..sort((a, b) {
-        final aData = a.data() as Map<String, dynamic>;
-        final bData = b.data() as Map<String, dynamic>;
-        final aScore = (aData['score'] is int)
-            ? aData['score'] as int
-            : int.tryParse(aData['score']?.toString() ?? '0') ?? 0;
-        final bScore = (bData['score'] is int)
-            ? bData['score'] as int
-            : int.tryParse(bData['score']?.toString() ?? '0') ?? 0;
-        return bScore.compareTo(aScore);
-      });
-
-    return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const Icon(Icons.emoji_events, size: 80, color: Colors.amber),
-            const SizedBox(height: 12),
-            const Text(
-              'GAME COMPLETED!',
-              style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 2,
-                color: Colors.indigo,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'All roles have been identified. Final Scoreboard:',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey),
-            ),
-            const SizedBox(height: 24),
-            Card(
-              elevation: 4,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  children: [
-                    const Text(
-                      'FINAL RANKINGS',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1.5,
-                      ),
-                    ),
-                    const Divider(height: 24),
-                    ...sortedPlayers.asMap().entries.map((entry) {
-                      final rank = entry.key + 1;
-                      final player = entry.value;
-                      final data = player.data() as Map<String, dynamic>;
-                      final name = data['name']?.toString() ?? 'Player';
-                      final role = data['role']?.toString() ?? 'Role';
-                      final score = (data['score'] is int)
-                          ? data['score'] as int
-                          : int.tryParse(data['score']?.toString() ?? '0') ?? 0;
-
-                      String medal = '';
-                      if (rank == 1) medal = '🥇 ';
-                      if (rank == 2) medal = '🥈 ';
-                      if (rank == 3) medal = '🥉 ';
-
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 10, horizontal: 12),
-                        margin: const EdgeInsets.only(bottom: 8),
-                        decoration: BoxDecoration(
-                          color: rank == 1
-                              ? Colors.amber.shade50
-                              : Colors.grey.shade50,
-                          borderRadius: BorderRadius.circular(10),
-                          border: rank == 1
-                              ? Border.all(color: Colors.amber.shade600)
-                              : null,
-                        ),
-                        child: Row(
-                          children: [
-                            Text(
-                              '$medal#$rank',
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    name,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    'Final Role: ${role.toUpperCase()}',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Text(
-                              '$score pts',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.green.shade800,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton.icon(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  foregroundColor: Colors.white,
-                ),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-                icon: const Icon(Icons.arrow_back),
-                label: const Text(
-                  'BACK TO LOBBY',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   String _getPlayerName(

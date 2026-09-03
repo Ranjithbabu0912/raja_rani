@@ -49,17 +49,25 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen> {
 
           final status = roomData['status'] ?? 'waiting';
 
-          if (status == 'playing') {
+          if (status == 'playing' || status == 'round_result' || status == 'completed') {
             return _buildRoleScreen();
           }
 
-          return _buildLobby(context, roomRef);
+          return _buildLobby(context, roomRef, roomData);
         },
       ),
     );
   }
 
-  Widget _buildLobby(BuildContext context, DocumentReference roomRef) {
+  Widget _buildLobby(
+    BuildContext context,
+    DocumentReference roomRef,
+    Map<String, dynamic> roomData,
+  ) {
+    final int roundsTotal = (roomData['roundsTotal'] is int)
+        ? roomData['roundsTotal'] as int
+        : int.tryParse(roomData['roundsTotal']?.toString() ?? '3') ?? 3;
+
     return StreamBuilder<QuerySnapshot>(
       stream: roomRef.collection('players').orderBy('joinedAt').snapshots(),
       builder: (context, playerSnapshot) {
@@ -77,6 +85,8 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen> {
         }
 
         final players = playerSnapshot.data?.docs ?? [];
+        final currentUser = FirebaseAuth.instance.currentUser;
+        final isHost = players.isNotEmpty && players.first.id == currentUser?.uid;
 
         return Center(
           child: SingleChildScrollView(
@@ -116,6 +126,105 @@ class _RoomLobbyScreenState extends State<RoomLobbyScreen> {
                           ),
                           const SizedBox(height: 8),
                           const Text('Share this code with your friends'),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  // NUMBER OF ROUNDS SELECTOR CARD
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'NUMBER OF ROUNDS',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  letterSpacing: 1.2,
+                                ),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                '1 – 10 rounds',
+                                style: TextStyle(fontSize: 12, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                          if (isHost)
+                            Row(
+                              children: [
+                                IconButton.filledTonal(
+                                  icon: const Icon(Icons.remove),
+                                  onPressed: roundsTotal > 1
+                                      ? () async {
+                                          try {
+                                            await _roomService.updateRoundsTotal(
+                                              roomId: widget.roomId,
+                                              roundsTotal: roundsTotal - 1,
+                                            );
+                                          } catch (e) {
+                                            if (!context.mounted) return;
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Error: $e')),
+                                            );
+                                          }
+                                        }
+                                      : null,
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                                  child: Text(
+                                    '$roundsTotal',
+                                    style: const TextStyle(
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                IconButton.filledTonal(
+                                  icon: const Icon(Icons.add),
+                                  onPressed: roundsTotal < 10
+                                      ? () async {
+                                          try {
+                                            await _roomService.updateRoundsTotal(
+                                              roomId: widget.roomId,
+                                              roundsTotal: roundsTotal + 1,
+                                            );
+                                          } catch (e) {
+                                            if (!context.mounted) return;
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              SnackBar(content: Text('Error: $e')),
+                                            );
+                                          }
+                                        }
+                                      : null,
+                                ),
+                              ],
+                            )
+                          else
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.indigo.shade50,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                '$roundsTotal Rounds',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.indigo,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     ),

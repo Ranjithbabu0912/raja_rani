@@ -10,7 +10,10 @@ class RoomService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  Future<String> createRoom({required String playerName}) async {
+  Future<String> createRoom({
+    required String playerName,
+    int roundsTotal = 3,
+  }) async {
     final user = _auth.currentUser;
 
     if (user == null) {
@@ -29,7 +32,9 @@ class RoomService {
       'currentRole': '',
       'currentTargetRole': '',
       'completedRoles': [],
-      'round': 0,
+      'round': 1,
+      'currentRound': 1,
+      'roundsTotal': roundsTotal,
       'createdAt': Timestamp.now(),
     });
 
@@ -37,6 +42,7 @@ class RoomService {
       'name': playerName,
       'role': '',
       'rolePoints': 0,
+      'roundScore': 0,
       'score': 0,
       'isReady': false,
       'joinedAt': Timestamp.now(),
@@ -44,6 +50,24 @@ class RoomService {
     });
 
     return roomId;
+  }
+
+  Future<void> updateRoundsTotal({
+    required String roomId,
+    required int roundsTotal,
+  }) async {
+    if (roundsTotal < 1 || roundsTotal > 10) {
+      throw Exception('Number of rounds must be between 1 and 10.');
+    }
+
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception('Player is not authenticated.');
+    }
+
+    final roomRef = _firestore.collection('rooms').doc(roomId);
+    await roomRef.update({'roundsTotal': roundsTotal});
   }
 
   Future<void> joinRoom({
@@ -82,6 +106,7 @@ class RoomService {
       'name': playerName,
       'role': '',
       'rolePoints': 0,
+      'roundScore': 0,
       'score': 0,
       'isReady': false,
       'joinedAt': Timestamp.now(),
@@ -124,6 +149,7 @@ class RoomService {
         'name': player['name'],
         'role': '',
         'rolePoints': 0,
+        'roundScore': 0,
         'score': 0,
         'isReady': true,
         'joinedAt': Timestamp.now(),
@@ -150,6 +176,12 @@ class RoomService {
     }
 
     final roomRef = _firestore.collection('rooms').doc(roomId);
+
+    final roomSnapshot = await roomRef.get();
+    final roomData = roomSnapshot.data();
+    final int roundsTotal = (roomData?['roundsTotal'] is int)
+        ? roomData!['roundsTotal'] as int
+        : int.tryParse(roomData?['roundsTotal']?.toString() ?? '3') ?? 3;
 
     // Get all players
     final playersSnapshot = await roomRef
@@ -197,6 +229,7 @@ class RoomService {
       batch.update(playerRef, {
         'role': role.displayName,
         'rolePoints': role.points,
+        'roundScore': 0,
         'score': 0,
       });
     }
@@ -212,17 +245,112 @@ class RoomService {
       'currentTargetRole': GameRole.rani.displayName,
       'completedRoles': [],
       'round': 1,
+      'currentRound': 1,
+      'roundsTotal': roundsTotal,
       'gameStartedAt': timestamp,
-      'lastActionMessage': 'Game started! Raja must find Rani.',
+      'lastActionMessage': 'Round 1 / $roundsTotal started! Raja must find Rani.',
       'lastActionTimestamp': timestamp,
       'lastAction': {
         'type': 'game_start',
-        'message': 'Game started! Raja must find Rani.',
+        'message': 'Round 1 / $roundsTotal started! Raja must find Rani.',
         'timestamp': timestamp,
       },
     });
 
     await batch.commit();
+  }
+
+  Future<void> startNextRound({required String roomId}) async {
+    final user = _auth.currentUser;
+
+    if (user == null) {
+      throw Exception('Player is not authenticated.');
+    }
+
+    final roomRef = _firestore.collection('rooms').doc(roomId);
+
+    await _firestore.runTransaction((transaction) async {
+      final roomSnapshot = await transaction.get(roomRef);
+      if (!roomSnapshot.exists) {
+        throw Exception('Room does not exist.');
+      }
+
+      final roomData = roomSnapshot.data() as Map<String, dynamic>;
+      final String status = roomData['status']?.toString() ?? '';
+
+      if (status != 'round_result') {
+        // Prevent duplicate invocation if already started
+        return;
+      }
+
+      final int currentRound = (roomData['currentRound'] is int)
+          ? roomData['currentRound'] as int
+          : (roomData['round'] is int)
+              ? roomData['round'] as int
+              : int.tryParse(roomData['currentRound']?.toString() ?? roomData['round']?.toString() ?? '1') ?? 1;
+
+      final int roundsTotal = (roomData['roundsTotal'] is int)
+          ? roomData['roundsTotal'] as int
+          : int.tryParse(roomData['roundsTotal']?.toString() ?? '3') ?? 3;
+
+      final int nextRound = currentRound + 1;
+
+      if (nextRound > roundsTotal) {
+        throw Exception('All rounds have already been completed.');
+      }
+
+      final playersSnapshot = await roomRef
+          .collection('players')
+          .orderBy('joinedAt')
+          .get();
+
+      final players = playersSnapshot.docs;
+
+      if (players.length != 6) {
+        throw Exception('The game requires exactly 6 players.');
+      }
+
+      // Generate fresh random secret roles for all 6 players
+      final roles = RoleService.generateRandomRoles();
+      String rajaPlayerId = '';
+
+      for (int i = 0; i < players.length; i++) {
+        final playerRef = players[i].reference;
+        final role = roles[i];
+
+        if (role == GameRole.raja) {
+          rajaPlayerId = players[i].id;
+        }
+
+        transaction.update(playerRef, {
+          'role': role.displayName,
+          'rolePoints': role.points,
+          'roundScore': 0, // Reset round score for new round
+          // 'score' remains unchanged (accumulated score preserved!)
+        });
+      }
+
+      final timestamp = FieldValue.serverTimestamp();
+
+      transaction.update(roomRef, {
+        'status': 'playing',
+        'currentTurnPlayerId': rajaPlayerId,
+        'currentRajaId': rajaPlayerId,
+        'currentRole': GameRole.raja.displayName,
+        'currentTargetRole': GameRole.rani.displayName,
+        'completedRoles': [],
+        'round': nextRound,
+        'currentRound': nextRound,
+        'lastActionMessage': 'Round $nextRound / $roundsTotal started! Raja must find Rani.',
+        'lastActionTimestamp': timestamp,
+        'lastAction': {
+          'type': 'round_start',
+          'round': nextRound,
+          'message': 'Round $nextRound / $roundsTotal started! Raja must find Rani.',
+          'timestamp': timestamp,
+        },
+      });
+    });
   }
 
   Future<Map<String, dynamic>> makeGuess({
@@ -307,14 +435,21 @@ class RoomService {
       if (isCorrect) {
         final int earnedPoints = _getPointsForRoleName(currentRoleStr);
 
-        final int oldScore = (guessingData['score'] is int)
+        final int oldRoundScore = (guessingData['roundScore'] is int)
+            ? guessingData['roundScore'] as int
+            : int.tryParse(guessingData['roundScore']?.toString() ?? '0') ?? 0;
+        final int newRoundScore = oldRoundScore + earnedPoints;
+
+        final int oldOverallScore = (guessingData['score'] is int)
             ? guessingData['score'] as int
             : int.tryParse(guessingData['score']?.toString() ?? '0') ?? 0;
+        final int newOverallScore = oldOverallScore + earnedPoints;
 
-        final int newScore = oldScore + earnedPoints;
-
-        // Update guessing player score
-        transaction.update(guessingPlayerRef, {'score': newScore});
+        // Update guessing player roundScore and overall score
+        transaction.update(guessingPlayerRef, {
+          'roundScore': newRoundScore,
+          'score': newOverallScore,
+        });
 
         // Add currentRoleStr to completedRoles as this guessing role successfully completed its guess
         final updatedCompletedRoles = List<String>.from(completedRoles);
@@ -327,13 +462,77 @@ class RoomService {
         final String? nextTargetRole = _getNextTargetRole(currentTargetRoleStr);
         final String nextRole = currentTargetRoleStr;
 
+        final int currentRound = (roomData['currentRound'] is int)
+            ? roomData['currentRound'] as int
+            : (roomData['round'] is int)
+                ? roomData['round'] as int
+                : int.tryParse(roomData['currentRound']?.toString() ?? roomData['round']?.toString() ?? '1') ?? 1;
+
+        final int roundsTotal = (roomData['roundsTotal'] is int)
+            ? roomData['roundsTotal'] as int
+            : int.tryParse(roomData['roundsTotal']?.toString() ?? '3') ?? 3;
+
         if (nextTargetRole == null) {
-          // Game Completed (Police found Thirudan)
+          // Police found Thirudan - Round Finished!
           if (!updatedCompletedRoles
               .map((r) => r.toLowerCase())
               .contains(currentTargetRoleStr.toLowerCase())) {
             updatedCompletedRoles.add(currentTargetRoleStr);
           }
+
+          // Fetch all 6 players in the room to build the round snapshot for history saving
+          final allPlayersQuery = await roomRef.collection('players').get();
+          final List<Map<String, dynamic>> roundPlayersSnapshot = [];
+
+          for (final pDoc in allPlayersQuery.docs) {
+            final pData = pDoc.data();
+            final pId = pDoc.id;
+            final pName = pData['name']?.toString() ?? 'Player';
+            final pRole = pData['role']?.toString() ?? '';
+
+            final int pRoundScore = (pId == guessingPlayerId)
+                ? newRoundScore
+                : ((pData['roundScore'] is int)
+                    ? pData['roundScore'] as int
+                    : int.tryParse(pData['roundScore']?.toString() ?? '0') ?? 0);
+
+            final int pOverallScore = (pId == guessingPlayerId)
+                ? newOverallScore
+                : ((pData['score'] is int)
+                    ? pData['score'] as int
+                    : int.tryParse(pData['score']?.toString() ?? '0') ?? 0);
+
+            roundPlayersSnapshot.add({
+              'playerId': pId,
+              'name': pName,
+              'role': pRole,
+              'roundScore': pRoundScore,
+              'overallScore': pOverallScore,
+            });
+          }
+
+          // Save round result doc in Firestore under rooms/{roomId}/rounds/round_{currentRound}
+          final roundDocRef = roomRef.collection('rounds').doc('round_$currentRound');
+          transaction.set(roundDocRef, {
+            'roundNumber': currentRound,
+            'completedAt': timestamp,
+            'players': roundPlayersSnapshot,
+            'status': 'completed',
+          });
+
+          final Map<String, dynamic> existingRoundHistory =
+              (roomData['roundHistory'] is Map<String, dynamic>)
+                  ? Map<String, dynamic>.from(roomData['roundHistory'] as Map)
+                  : {};
+
+          existingRoundHistory['round_$currentRound'] = {
+            'roundNumber': currentRound,
+            'completedAt': timestamp,
+            'players': roundPlayersSnapshot,
+            'status': 'completed',
+          };
+
+          final bool isFinalRound = currentRound >= roundsTotal;
 
           final lastAction = {
             'type': 'guess_result',
@@ -344,29 +543,41 @@ class RoomService {
             'selectedPlayerName': targetPlayerName,
             'guessingRole': currentRoleStr,
             'targetRole': currentTargetRoleStr,
-            'message':
-                '$guessingPlayerName ($currentRoleStr) correctly guessed $targetPlayerName as $currentTargetRoleStr! Game Completed!',
+            'message': isFinalRound
+                ? '$guessingPlayerName ($currentRoleStr) correctly guessed $targetPlayerName as $currentTargetRoleStr! Game Completed!'
+                : '$guessingPlayerName ($currentRoleStr) correctly guessed $targetPlayerName as $currentTargetRoleStr! Round $currentRound / $roundsTotal Completed!',
             'timestamp': timestamp,
           };
 
-          transaction.update(roomRef, {
-            'status': 'completed',
+          final Map<String, dynamic> roomUpdates = {
+            'status': isFinalRound ? 'completed' : 'round_result',
             'completedRoles': updatedCompletedRoles,
             'lastAction': lastAction,
-            'lastActionMessage':
-                '$guessingPlayerName ($currentRoleStr) guessed $targetPlayerName ($currentTargetRoleStr) — CORRECT! Game Completed!',
+            'lastActionMessage': isFinalRound
+                ? '$guessingPlayerName ($currentRoleStr) guessed $targetPlayerName ($currentTargetRoleStr) — CORRECT! Game Completed!'
+                : '$guessingPlayerName ($currentRoleStr) guessed $targetPlayerName ($currentTargetRoleStr) — CORRECT! Round $currentRound Completed!',
+            'roundHistory': existingRoundHistory,
             'lastActionTimestamp': timestamp,
-            'gameCompletedAt': timestamp,
-          });
+          };
+
+          if (isFinalRound) {
+            roomUpdates['gameCompletedAt'] = timestamp;
+          }
+
+          transaction.update(roomRef, roomUpdates);
 
           return {
             'isCorrect': true,
-            'isGameCompleted': true,
-            'message':
-                '$guessingPlayerName correctly guessed $targetPlayerName! Game Completed!',
+            'isGameCompleted': isFinalRound,
+            'isRoundCompleted': true,
+            'currentRound': currentRound,
+            'roundsTotal': roundsTotal,
+            'message': isFinalRound
+                ? '$guessingPlayerName correctly guessed $targetPlayerName! Game Completed!'
+                : '$guessingPlayerName correctly guessed $targetPlayerName! Round $currentRound / $roundsTotal Completed!',
           };
         } else {
-          // Next round transition
+          // Intermediate correct guess in current round
           final lastAction = {
             'type': 'guess_result',
             'result': 'correct',
@@ -401,6 +612,7 @@ class RoomService {
           return {
             'isCorrect': true,
             'isGameCompleted': false,
+            'isRoundCompleted': false,
             'message':
                 '$guessingPlayerName correctly guessed $targetPlayerName!',
           };
@@ -455,6 +667,7 @@ class RoomService {
         return {
           'isCorrect': false,
           'isGameCompleted': false,
+          'isRoundCompleted': false,
           'message':
               '$guessingPlayerName guessed $targetPlayerName — WRONG! Roles exchanged.',
         };

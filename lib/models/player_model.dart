@@ -6,6 +6,7 @@ class PlayerModel {
   final String role;
   final int rolePoints;
   final int score;
+  final int roundScore;
   final bool isReady;
   final DateTime? joinedAt;
   final bool isConnected;
@@ -16,6 +17,7 @@ class PlayerModel {
     required this.role,
     required this.rolePoints,
     required this.score,
+    required this.roundScore,
     required this.isReady,
     this.joinedAt,
     required this.isConnected,
@@ -32,6 +34,9 @@ class PlayerModel {
       score: (map['score'] is int)
           ? map['score'] as int
           : int.tryParse(map['score']?.toString() ?? '0') ?? 0,
+      roundScore: (map['roundScore'] is int)
+          ? map['roundScore'] as int
+          : int.tryParse(map['roundScore']?.toString() ?? '0') ?? 0,
       isReady: map['isReady'] == true,
       joinedAt: map['joinedAt'] is Timestamp
           ? (map['joinedAt'] as Timestamp).toDate()
@@ -46,6 +51,7 @@ class PlayerModel {
       'role': role,
       'rolePoints': rolePoints,
       'score': score,
+      'roundScore': roundScore,
       'isReady': isReady,
       'joinedAt': joinedAt,
       'isConnected': isConnected,
