@@ -8,6 +8,7 @@ class PlayerModel {
   final int score;
   final int roundScore;
   final bool isReady;
+  final int? selectedCardIndex;
   final DateTime? joinedAt;
   final bool isConnected;
 
@@ -19,11 +20,16 @@ class PlayerModel {
     required this.score,
     required this.roundScore,
     required this.isReady,
+    this.selectedCardIndex,
     this.joinedAt,
     required this.isConnected,
   });
 
   factory PlayerModel.fromMap(String id, Map<String, dynamic> map) {
+    final parsedCardIndex = (map['selectedCardIndex'] is int)
+        ? map['selectedCardIndex'] as int
+        : int.tryParse(map['selectedCardIndex']?.toString() ?? '');
+
     return PlayerModel(
       playerId: id,
       name: map['name']?.toString() ?? '',
@@ -38,6 +44,7 @@ class PlayerModel {
           ? map['roundScore'] as int
           : int.tryParse(map['roundScore']?.toString() ?? '0') ?? 0,
       isReady: map['isReady'] == true,
+      selectedCardIndex: parsedCardIndex,
       joinedAt: map['joinedAt'] is Timestamp
           ? (map['joinedAt'] as Timestamp).toDate()
           : null,
@@ -53,6 +60,7 @@ class PlayerModel {
       'score': score,
       'roundScore': roundScore,
       'isReady': isReady,
+      'selectedCardIndex': selectedCardIndex,
       'joinedAt': joinedAt,
       'isConnected': isConnected,
     };

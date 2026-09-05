@@ -12,6 +12,9 @@ class RoomModel {
   final int round;
   final int currentRound;
   final int roundsTotal;
+  final Map<String, dynamic>? cardSelections;
+  final Map<String, dynamic>? secretCards;
+  final int selectedCardsCount;
   final Map<String, dynamic>? lastAction;
   final String? lastActionMessage;
   final DateTime? createdAt;
@@ -28,6 +31,9 @@ class RoomModel {
     required this.round,
     required this.currentRound,
     required this.roundsTotal,
+    this.cardSelections,
+    this.secretCards,
+    this.selectedCardsCount = 0,
     this.lastAction,
     this.lastActionMessage,
     this.createdAt,
@@ -43,6 +49,10 @@ class RoomModel {
     final parsedRoundsTotal = (map['roundsTotal'] is int)
         ? map['roundsTotal'] as int
         : int.tryParse(map['roundsTotal']?.toString() ?? '3') ?? 3;
+
+    final parsedSelectedCount = (map['selectedCardsCount'] is int)
+        ? map['selectedCardsCount'] as int
+        : int.tryParse(map['selectedCardsCount']?.toString() ?? '0') ?? 0;
 
     return RoomModel(
       roomId: id,
@@ -61,6 +71,13 @@ class RoomModel {
       round: parsedCurrentRound,
       currentRound: parsedCurrentRound,
       roundsTotal: parsedRoundsTotal,
+      cardSelections: map['cardSelections'] is Map<String, dynamic>
+          ? map['cardSelections'] as Map<String, dynamic>
+          : null,
+      secretCards: map['secretCards'] is Map<String, dynamic>
+          ? map['secretCards'] as Map<String, dynamic>
+          : null,
+      selectedCardsCount: parsedSelectedCount,
       lastAction: map['lastAction'] is Map<String, dynamic>
           ? map['lastAction'] as Map<String, dynamic>
           : null,
@@ -83,6 +100,9 @@ class RoomModel {
       'round': currentRound,
       'currentRound': currentRound,
       'roundsTotal': roundsTotal,
+      'cardSelections': cardSelections,
+      'secretCards': secretCards,
+      'selectedCardsCount': selectedCardsCount,
       'lastAction': lastAction,
       'lastActionMessage': lastActionMessage,
       'createdAt': createdAt,

@@ -2,7 +2,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../components/card_selection_widget.dart';
+import '../components/rr_loader.dart';
 import '../services/room_service.dart';
+import '../utils/app_theme.dart';
+import '../widgets/kolam_painter.dart';
+import '../widgets/traditional_card.dart';
 
 class GameScreen extends StatefulWidget {
   final String roomId;
@@ -22,6 +27,19 @@ class _GameScreenState extends State<GameScreen> {
   // Toggle for Developer / Test mode controls
   bool _isDevTestMode = false;
   bool _isAllPlayersTestView = false;
+
+  late final Stream<DocumentSnapshot> _roomStream;
+  late final Stream<QuerySnapshot> _playersStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final roomRef =
+        FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
+    _roomStream = roomRef.snapshots();
+    _playersStream =
+        roomRef.collection('players').orderBy('joinedAt').snapshots();
+  }
 
   IconData _getRoleIcon(String role) {
     switch (role.toLowerCase()) {
@@ -45,39 +63,40 @@ class _GameScreenState extends State<GameScreen> {
   Color _getRoleColor(String role) {
     switch (role.toLowerCase()) {
       case 'raja':
-        return Colors.amber.shade700;
+        return AppColors.roleRaja;
       case 'rani':
-        return Colors.pink.shade400;
+        return AppColors.roleRani;
       case 'manthiri':
-        return Colors.purple.shade400;
+        return AppColors.roleManthiri;
       case 'sippai':
-        return Colors.blue.shade600;
+        return AppColors.roleSippai;
       case 'police':
-        return Colors.indigo.shade600;
+        return AppColors.rolePolice;
       case 'thirudan':
-        return Colors.deepOrange.shade600;
+        return AppColors.roleThirudan;
       default:
-        return Colors.grey;
+        return AppColors.darkBrown;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final roomRef =
-        FirebaseFirestore.instance.collection('rooms').doc(widget.roomId);
-
     return StreamBuilder<DocumentSnapshot>(
-      stream: roomRef.snapshots(),
+      stream: _roomStream,
       builder: (context, roomSnapshot) {
-        if (roomSnapshot.connectionState == ConnectionState.waiting) {
+        if (roomSnapshot.connectionState == ConnectionState.waiting &&
+            !roomSnapshot.hasData) {
           return Scaffold(
+            backgroundColor: AppColors.warmCream,
             appBar: AppBar(
-              title: const Text('Raja Rani Game'),
+              title: const Text(
+                'RAJA RANI GAME',
+                style: TextStyle(fontWeight: FontWeight.w900, color: Colors.white),
+              ),
               centerTitle: true,
-              backgroundColor: Colors.indigo.shade800,
-              foregroundColor: Colors.white,
+              backgroundColor: AppColors.terracotta,
             ),
-            body: const Center(child: CircularProgressIndicator()),
+            body: const RRLoader(message: 'Loading Room...'),
           );
         }
 
@@ -170,7 +189,7 @@ class _GameScreenState extends State<GameScreen> {
               ],
             ),
             centerTitle: true,
-            backgroundColor: Colors.indigo.shade800,
+            backgroundColor: AppColors.terracotta,
             foregroundColor: Colors.white,
             actions: [
               PopupMenuButton<String>(
@@ -235,13 +254,11 @@ class _GameScreenState extends State<GameScreen> {
             ],
           ),
           body: StreamBuilder<QuerySnapshot>(
-            stream: roomRef
-                .collection('players')
-                .orderBy('joinedAt')
-                .snapshots(),
+            stream: _playersStream,
             builder: (context, playersSnapshot) {
-              if (playersSnapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
+              if (playersSnapshot.connectionState == ConnectionState.waiting &&
+                  !playersSnapshot.hasData) {
+                return const RRLoader(message: 'Loading Players...');
               }
 
               if (playersSnapshot.hasError) {
@@ -257,6 +274,33 @@ class _GameScreenState extends State<GameScreen> {
 
               if (players.isEmpty) {
                 return const Center(child: Text('No players found.'));
+              }
+
+              if (status == 'roleSelection') {
+                final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+                if (_selectedPlayerId == null ||
+                    !players.any((player) => player.id == _selectedPlayerId)) {
+                  if (currentUserId != null &&
+                      players.any((player) => player.id == currentUserId)) {
+                    _selectedPlayerId = currentUserId;
+                  } else {
+                    _selectedPlayerId = players.first.id;
+                  }
+                }
+
+                return CardSelectionWidget(
+                  roomId: widget.roomId,
+                  roomData: roomData,
+                  players: players,
+                  activePlayerId: _selectedPlayerId!,
+                  isDevTestMode: _isDevTestMode,
+                  onPlayerSwitched: (newPlayerId) {
+                    setState(() {
+                      _selectedPlayerId = newPlayerId;
+                    });
+                  },
+                );
               }
 
               if (status == 'round_result') {
@@ -678,162 +722,159 @@ class _GameScreenState extends State<GameScreen> {
 
         return SafeArea(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               children: [
                 // WINNER CARD
-                Card(
-                  color: Colors.amber.shade700,
-                  elevation: 6,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        const Text(
-                          '🏆 WINNER',
-                          style: TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 3,
-                            color: Colors.white,
+                TraditionalCard(
+                  backgroundColor: AppColors.cardCream,
+                  borderColor: AppColors.terracotta,
+                  borderWidth: 2.5,
+                  child: Column(
+                    children: [
+                      const SizedBox(
+                        width: 60,
+                        height: 60,
+                        child: CustomPaint(
+                          painter: KolamMandalaPainter(
+                            primaryColor: AppColors.terracotta,
+                            secondaryColor: AppColors.turmeric,
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        const CircleAvatar(
-                          radius: 36,
-                          backgroundColor: Colors.white,
-                          child: Icon(Icons.emoji_events, size: 44, color: Colors.amber),
+                      ),
+                      const SizedBox(height: 12),
+                      const Text(
+                        '🏆 WINNER 🏆',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2.5,
+                          color: AppColors.terracotta,
                         ),
-                        const SizedBox(height: 12),
-                        Text(
-                          winnerName,
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        winnerName,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.darkBrown,
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Total Score: $winnerScore',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white70,
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Total Score: $winnerScore Points',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.leafGreen,
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
 
                 const SizedBox(height: 20),
 
                 // FINAL SCOREBOARD TABLE CARD
-                Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Row(
-                          children: [
-                            Icon(Icons.leaderboard, color: Colors.indigo),
-                            SizedBox(width: 8),
-                            Text(
-                              '🏆 FINAL SCOREBOARD',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                letterSpacing: 1.5,
-                              ),
+                TraditionalCard(
+                  borderColor: AppColors.turmeric,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.leaderboard, color: AppColors.terracotta),
+                          SizedBox(width: 8),
+                          Text(
+                            'FINAL SCOREBOARD',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5,
+                              color: AppColors.darkBrown,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const Divider(height: 20, color: AppColors.borderBrown),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: DataTable(
+                          columnSpacing: 16,
+                          headingRowHeight: 40,
+                          columns: [
+                            const DataColumn(
+                              label: Text('Rank', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
+                            ),
+                            const DataColumn(
+                              label: Text('Player', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
+                            ),
+                            ...List.generate(actualRoundCount, (index) {
+                              return DataColumn(
+                                label: Text(
+                                  'Round ${index + 1}',
+                                  style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBrown),
+                                ),
+                              );
+                            }),
+                            const DataColumn(
+                              label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold, color: AppColors.darkBrown)),
                             ),
                           ],
-                        ),
-                        const Divider(height: 20),
-                        SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: DataTable(
-                            columnSpacing: 16,
-                            headingRowHeight: 40,
-                            columns: [
-                              const DataColumn(
-                                label: Text('Rank', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                              const DataColumn(
-                                label: Text('Player', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                              ...List.generate(actualRoundCount, (index) {
-                                return DataColumn(
-                                  label: Text(
-                                    'Round ${index + 1}',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
-                                );
-                              }),
-                              const DataColumn(
-                                label: Text('Total', style: TextStyle(fontWeight: FontWeight.bold)),
-                              ),
-                            ],
-                            rows: sortedPlayerIds.asMap().entries.map((entry) {
-                              final rank = entry.key + 1;
-                              final pId = entry.value;
-                              final pName = playerNames[pId] ?? 'Player';
-                              final pTotal = playerTotalScores[pId] ?? 0;
-                              final pRoundsMap = playerRoundScores[pId] ?? {};
+                          rows: sortedPlayerIds.asMap().entries.map((entry) {
+                            final rank = entry.key + 1;
+                            final pId = entry.value;
+                            final pName = playerNames[pId] ?? 'Player';
+                            final pTotal = playerTotalScores[pId] ?? 0;
+                            final pRoundsMap = playerRoundScores[pId] ?? {};
 
-                              String medal = '';
-                              if (rank == 1) medal = '🥇 ';
-                              if (rank == 2) medal = '🥈 ';
-                              if (rank == 3) medal = '🥉 ';
+                            String medal = '';
+                            if (rank == 1) medal = '🥇 ';
+                            if (rank == 2) medal = '🥈 ';
+                            if (rank == 3) medal = '🥉 ';
 
-                              return DataRow(
-                                cells: [
-                                  DataCell(
-                                    Text(
-                                      '$medal#$rank',
-                                      style: TextStyle(
-                                        fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
-                                      ),
+                            return DataRow(
+                              cells: [
+                                DataCell(
+                                  Text(
+                                    '$medal#$rank',
+                                    style: TextStyle(
+                                      fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
+                                      color: AppColors.darkBrown,
                                     ),
                                   ),
-                                  DataCell(
-                                    Text(
-                                      pName,
-                                      style: TextStyle(
-                                        fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
-                                      ),
+                                ),
+                                DataCell(
+                                  Text(
+                                    pName,
+                                    style: TextStyle(
+                                      fontWeight: rank == 1 ? FontWeight.bold : FontWeight.normal,
+                                      color: AppColors.darkBrown,
                                     ),
                                   ),
-                                  ...List.generate(actualRoundCount, (index) {
-                                    final rNum = index + 1;
-                                    final rScore = pRoundsMap[rNum] ?? 0;
-                                    return DataCell(Text('+$rScore'));
-                                  }),
-                                  DataCell(
-                                    Text(
-                                      '$pTotal',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.green,
-                                      ),
+                                ),
+                                ...List.generate(actualRoundCount, (index) {
+                                  final rNum = index + 1;
+                                  final rScore = pRoundsMap[rNum] ?? 0;
+                                  return DataCell(Text('+$rScore', style: const TextStyle(color: AppColors.darkBrown)));
+                                }),
+                                DataCell(
+                                  Text(
+                                    '$pTotal',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppColors.leafGreen,
                                     ),
                                   ),
-                                ],
-                              );
-                            }).toList(),
-                          ),
+                                ),
+                              ],
+                            );
+                          }).toList(),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
 
@@ -844,8 +885,11 @@ class _GameScreenState extends State<GameScreen> {
                   height: 50,
                   child: ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.indigo,
+                      backgroundColor: AppColors.terracotta,
                       foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                     onPressed: () {
                       Navigator.pop(context);

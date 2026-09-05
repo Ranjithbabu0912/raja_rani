@@ -212,52 +212,203 @@ class RoomService {
       throw Exception('All players must be ready.');
     }
 
-    // Generate random roles for all 6 players
+    // Generate random secret roles for Cards 1..6
     final roles = RoleService.generateRandomRoles();
+    final Map<String, dynamic> secretCards = {};
+
+    for (int i = 0; i < 6; i++) {
+      final cardNum = i + 1;
+      secretCards['$cardNum'] = {
+        'role': roles[i].displayName,
+        'rolePoints': roles[i].points,
+      };
+    }
 
     final batch = _firestore.batch();
-    String rajaPlayerId = '';
 
     for (int i = 0; i < players.length; i++) {
       final playerRef = players[i].reference;
-      final role = roles[i];
-
-      if (role == GameRole.raja) {
-        rajaPlayerId = players[i].id;
-      }
 
       batch.update(playerRef, {
-        'role': role.displayName,
-        'rolePoints': role.points,
+        'role': '',
+        'rolePoints': 0,
         'roundScore': 0,
         'score': 0,
+        'selectedCardIndex': null,
       });
     }
 
     final timestamp = FieldValue.serverTimestamp();
 
-    // Start the game with Raja seeking Rani
+    // Start blind card selection phase
     batch.update(roomRef, {
-      'status': 'playing',
-      'currentTurnPlayerId': rajaPlayerId,
-      'currentRajaId': rajaPlayerId,
-      'currentRole': GameRole.raja.displayName,
-      'currentTargetRole': GameRole.rani.displayName,
+      'status': 'roleSelection',
+      'currentTurnPlayerId': '',
+      'currentRajaId': '',
+      'currentRole': '',
+      'currentTargetRole': '',
       'completedRoles': [],
       'round': 1,
       'currentRound': 1,
       'roundsTotal': roundsTotal,
+      'secretCards': secretCards,
+      'cardSelections': {},
+      'selectedCardsCount': 0,
       'gameStartedAt': timestamp,
-      'lastActionMessage': 'Round 1 / $roundsTotal started! Raja must find Rani.',
+      'lastActionMessage': 'Round 1 / $roundsTotal: Select your secret card!',
       'lastActionTimestamp': timestamp,
       'lastAction': {
-        'type': 'game_start',
-        'message': 'Round 1 / $roundsTotal started! Raja must find Rani.',
+        'type': 'card_selection_start',
+        'message': 'Round 1 / $roundsTotal: Select your secret card!',
         'timestamp': timestamp,
       },
     });
 
     await batch.commit();
+  }
+
+  Future<void> selectRoleCard({
+    required String roomId,
+    required String playerId,
+    required int cardIndex,
+  }) async {
+    if (cardIndex < 1 || cardIndex > 6) {
+      throw Exception('Invalid card selection.');
+    }
+
+    final roomRef = _firestore.collection('rooms').doc(roomId);
+    final playerRef = roomRef.collection('players').doc(playerId);
+
+    await _firestore.runTransaction((transaction) async {
+      final roomSnapshot = await transaction.get(roomRef);
+      if (!roomSnapshot.exists) {
+        throw Exception('Room does not exist.');
+      }
+
+      final roomData = roomSnapshot.data() as Map<String, dynamic>;
+      final String status = roomData['status']?.toString() ?? '';
+
+      if (status != 'roleSelection') {
+        throw Exception('Card selection is not active.');
+      }
+
+      final Map<String, dynamic> cardSelections =
+          (roomData['cardSelections'] is Map<String, dynamic>)
+              ? Map<String, dynamic>.from(roomData['cardSelections'] as Map)
+              : {};
+
+      final String cardIndexKey = '$cardIndex';
+
+      // Check if cardIndex is already selected by anyone
+      if (cardSelections.containsKey(cardIndexKey)) {
+        throw Exception('This card has already been selected. Please choose another card.');
+      }
+
+      // Check if this player has already selected a card
+      for (final entry in cardSelections.entries) {
+        final selection = entry.value;
+        if (selection is Map<String, dynamic> && selection['playerId'] == playerId) {
+          throw Exception('You have already selected a card.');
+        }
+      }
+
+      // Fetch player details
+      final playerSnapshot = await transaction.get(playerRef);
+      if (!playerSnapshot.exists) {
+        throw Exception('Player not found in room.');
+      }
+      final playerData = playerSnapshot.data() as Map<String, dynamic>;
+      final playerName = playerData['name']?.toString() ?? 'Player';
+
+      // Fetch secret card assignment for cardIndex
+      final Map<String, dynamic> secretCards =
+          (roomData['secretCards'] is Map<String, dynamic>)
+              ? roomData['secretCards'] as Map<String, dynamic>
+              : {};
+
+      final cardData = secretCards[cardIndexKey] as Map<String, dynamic>?;
+      if (cardData == null) {
+        throw Exception('Card configuration error.');
+      }
+
+      final String assignedRole = cardData['role']?.toString() ?? '';
+      final int assignedRolePoints = (cardData['rolePoints'] is int)
+          ? cardData['rolePoints'] as int
+          : int.tryParse(cardData['rolePoints']?.toString() ?? '0') ?? 0;
+
+      final timestamp = FieldValue.serverTimestamp();
+
+      // Record card selection
+      cardSelections[cardIndexKey] = {
+        'playerId': playerId,
+        'playerName': playerName,
+        'selectedAt': DateTime.now().toIso8601String(),
+      };
+
+      final int newSelectedCardsCount = cardSelections.length;
+
+      // Update player doc with role and selected card
+      transaction.update(playerRef, {
+        'role': assignedRole,
+        'rolePoints': assignedRolePoints,
+        'selectedCardIndex': cardIndex,
+      });
+
+      // Update room doc
+      if (newSelectedCardsCount == 6) {
+        // All 6 players have selected their cards! Automatically start playing phase.
+        final playersSnapshot = await roomRef.collection('players').get();
+        String rajaPlayerId = '';
+
+        for (final pDoc in playersSnapshot.docs) {
+          final pId = pDoc.id;
+          final String pRole = (pId == playerId)
+              ? assignedRole
+              : (pDoc.data()['role']?.toString() ?? '');
+
+          if (pRole.toLowerCase() == GameRole.raja.displayName.toLowerCase()) {
+            rajaPlayerId = pId;
+          }
+        }
+
+        final int currentRound = (roomData['currentRound'] is int)
+            ? roomData['currentRound'] as int
+            : (roomData['round'] is int)
+                ? roomData['round'] as int
+                : int.tryParse(roomData['currentRound']?.toString() ?? '1') ?? 1;
+
+        final int roundsTotal = (roomData['roundsTotal'] is int)
+            ? roomData['roundsTotal'] as int
+            : int.tryParse(roomData['roundsTotal']?.toString() ?? '3') ?? 3;
+
+        transaction.update(roomRef, {
+          'status': 'playing',
+          'cardSelections': cardSelections,
+          'selectedCardsCount': 6,
+          'currentTurnPlayerId': rajaPlayerId,
+          'currentRajaId': rajaPlayerId,
+          'currentRole': GameRole.raja.displayName,
+          'currentTargetRole': GameRole.rani.displayName,
+          'completedRoles': [],
+          'lastActionMessage':
+              'All 6 cards selected! Round $currentRound / $roundsTotal started! Raja must find Rani.',
+          'lastActionTimestamp': timestamp,
+          'lastAction': {
+            'type': 'game_start',
+            'message':
+                'All 6 cards selected! Round $currentRound / $roundsTotal started! Raja must find Rani.',
+            'timestamp': timestamp,
+          },
+        });
+      } else {
+        transaction.update(roomRef, {
+          'cardSelections': cardSelections,
+          'selectedCardsCount': newSelectedCardsCount,
+          'lastActionMessage': '$playerName selected Card $cardIndex ($newSelectedCardsCount / 6 selected)',
+          'lastActionTimestamp': timestamp,
+        });
+      }
+    });
   }
 
   Future<void> startNextRound({required String roomId}) async {
@@ -310,22 +461,26 @@ class RoomService {
         throw Exception('The game requires exactly 6 players.');
       }
 
-      // Generate fresh random secret roles for all 6 players
+      // Generate fresh random secret roles for Cards 1..6
       final roles = RoleService.generateRandomRoles();
-      String rajaPlayerId = '';
+      final Map<String, dynamic> secretCards = {};
+
+      for (int i = 0; i < 6; i++) {
+        final cardNum = i + 1;
+        secretCards['$cardNum'] = {
+          'role': roles[i].displayName,
+          'rolePoints': roles[i].points,
+        };
+      }
 
       for (int i = 0; i < players.length; i++) {
         final playerRef = players[i].reference;
-        final role = roles[i];
-
-        if (role == GameRole.raja) {
-          rajaPlayerId = players[i].id;
-        }
 
         transaction.update(playerRef, {
-          'role': role.displayName,
-          'rolePoints': role.points,
+          'role': '',
+          'rolePoints': 0,
           'roundScore': 0, // Reset round score for new round
+          'selectedCardIndex': null,
           // 'score' remains unchanged (accumulated score preserved!)
         });
       }
@@ -333,20 +488,23 @@ class RoomService {
       final timestamp = FieldValue.serverTimestamp();
 
       transaction.update(roomRef, {
-        'status': 'playing',
-        'currentTurnPlayerId': rajaPlayerId,
-        'currentRajaId': rajaPlayerId,
-        'currentRole': GameRole.raja.displayName,
-        'currentTargetRole': GameRole.rani.displayName,
+        'status': 'roleSelection',
+        'currentTurnPlayerId': '',
+        'currentRajaId': '',
+        'currentRole': '',
+        'currentTargetRole': '',
         'completedRoles': [],
         'round': nextRound,
         'currentRound': nextRound,
-        'lastActionMessage': 'Round $nextRound / $roundsTotal started! Raja must find Rani.',
+        'secretCards': secretCards,
+        'cardSelections': {},
+        'selectedCardsCount': 0,
+        'lastActionMessage': 'Round $nextRound / $roundsTotal: Select your secret card!',
         'lastActionTimestamp': timestamp,
         'lastAction': {
           'type': 'round_start',
           'round': nextRound,
-          'message': 'Round $nextRound / $roundsTotal started! Raja must find Rani.',
+          'message': 'Round $nextRound / $roundsTotal: Select your secret card!',
           'timestamp': timestamp,
         },
       });

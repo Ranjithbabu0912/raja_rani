@@ -3,7 +3,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 import 'firebase_options.dart';
-import 'screens/lobby_screen.dart';
+import 'screens/splash_screen.dart';
+import 'utils/app_theme.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -27,10 +28,15 @@ class RajaRaniApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Raja Rani',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        scaffoldBackgroundColor: AppColors.warmCream,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: AppColors.terracotta,
+          primary: AppColors.terracotta,
+          surface: AppColors.cardCream,
+        ),
         useMaterial3: true,
       ),
-      home: const LobbyScreen(),
+      home: const SplashScreen(),
     );
   }
 }
