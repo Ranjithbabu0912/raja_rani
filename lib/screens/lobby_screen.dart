@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import '../components/rr_loader.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../services/room_service.dart';
 import '../utils/app_theme.dart';
-import '../widgets/kolam_painter.dart';
-import '../widgets/traditional_card.dart';
+import '../widgets/handdrawn_components.dart';
 import 'room_lobby_screen.dart';
 
 class LobbyScreen extends StatefulWidget {
@@ -27,7 +27,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your name to host a room'),
+          content: Text('Please write your name in the notebook'),
           backgroundColor: AppColors.terracotta,
         ),
       );
@@ -54,7 +54,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to create room: $e'),
+          content: Text('Failed to create game: $e'),
           backgroundColor: AppColors.terracotta,
         ),
       );
@@ -74,7 +74,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (name.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter your name to join'),
+          content: Text('Please write your name to join'),
           backgroundColor: AppColors.terracotta,
         ),
       );
@@ -84,7 +84,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
     if (roomId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please enter the 6-character Room ID'),
+          content: Text('Please enter the 6-character room code'),
           backgroundColor: AppColors.terracotta,
         ),
       );
@@ -111,7 +111,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to join room: $e'),
+          content: Text('Failed to join game: $e'),
           backgroundColor: AppColors.terracotta,
         ),
       );
@@ -133,244 +133,218 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.warmCream,
-      appBar: AppBar(
-        title: const Text(
-          'RAJA RANI',
-          style: TextStyle(
-            fontWeight: FontWeight.w900,
-            letterSpacing: 1.5,
-            color: Colors.white,
+    return NotebookPaperPage(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // 1. TOP TITLE HEADER: CROWNS + RAJA RANI + "KANDUPUDI?" + RED DOUBLE UNDERLINE
+          Column(
+            children: [
+              // Two Red Hand-Drawn Crowns
+              const Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  HandDrawnCrown(width: 32, height: 22),
+                  SizedBox(width: 44),
+                  HandDrawnCrown(width: 32, height: 22),
+                ],
+              ),
+              const SizedBox(height: 4),
+
+              // Title with action rays
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '\\ \\ ',
+                    style: GoogleFonts.kalam(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.ballpointBlue.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  Text(
+                    'RAJA RANI',
+                    style: GoogleFonts.kalam(
+                      fontSize: 38,
+                      fontWeight: FontWeight.w900,
+                      color: AppColors.ballpointBlue,
+                      letterSpacing: 3.0,
+                    ),
+                  ),
+                  Text(
+                    ' / /',
+                    style: GoogleFonts.kalam(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.ballpointBlue.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+
+              // Subtitle "KANDUPUDI?"
+              Text(
+                '"KANDUPUDI?"',
+                style: GoogleFonts.kalam(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ballpointBlue,
+                  letterSpacing: 1.8,
+                ),
+              ),
+              const SizedBox(height: 4),
+
+              // Red Double Hand-Drawn Underline
+              const HandDrawnUnderline(
+                width: 170,
+                isDouble: true,
+              ),
+            ],
           ),
-        ),
-        centerTitle: true,
-        backgroundColor: AppColors.terracotta,
-        elevation: 2,
-      ),
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 480),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Welcome Invitation Badge
-                TraditionalCard(
-                  borderColor: AppColors.terracotta,
-                  borderWidth: 2,
-                  child: Column(
-                    children: [
-                      const SizedBox(
-                        width: 50,
-                        height: 50,
-                        child: CustomPaint(
-                          painter: KolamMandalaPainter(
-                            primaryColor: AppColors.terracotta,
-                            secondaryColor: AppColors.turmeric,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'RAJA RANI',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.w900,
-                          color: AppColors.darkBrown,
-                          letterSpacing: 2,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      const Text(
-                        'Traditional Tamil Family Game',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.leafGreen,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
 
-                      // Player Name Field inside invitation card
-                      TextField(
-                        controller: _nameController,
-                        maxLength: 20,
-                        style: const TextStyle(
-                          color: AppColors.darkBrown,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Your Name',
-                          labelStyle: const TextStyle(color: AppColors.darkBrown),
-                          hintText: 'Enter your name',
-                          counterText: '',
-                          filled: true,
-                          fillColor: Colors.white,
-                          prefixIcon: const Icon(Icons.person, color: AppColors.terracotta),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.borderBrown, width: 1.5),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.terracotta, width: 2),
-                          ),
-                        ),
-                      ),
-                    ],
+          const SizedBox(height: 36),
+
+          // 2. YOUR NAME SECTION
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Text(
+                'YOUR NAME:',
+                style: GoogleFonts.kalam(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ballpointBlue,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: HandDrawnTextField(
+                  controller: _nameController,
+                  hintText: 'Enter your name...',
+                  maxLength: 20,
+                  style: GoogleFonts.patrickHand(
+                    fontSize: 19,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ballpointBlue,
+                  ),
+                  hintStyle: GoogleFonts.caveat(
+                    fontSize: 17,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.ballpointBlue.withValues(alpha: 0.45),
                   ),
                 ),
-
-                const SizedBox(height: 24),
-
-                // CREATE ROOM CARD (Host)
-                TraditionalCard(
-                  borderColor: AppColors.terracotta,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.stars, color: AppColors.terracotta, size: 22),
-                          SizedBox(width: 8),
-                          Text(
-                            'HOST A NEW GAME',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.darkBrown,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Create a room and invite 5 family members or friends.',
-                        style: TextStyle(fontSize: 12.5, color: AppColors.darkBrown),
-                      ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.terracotta,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 3,
-                          ),
-                          onPressed: _isCreatingRoom ? null : _createRoom,
-                          child: _isCreatingRoom
-                              ? const RRLoader(size: 24)
-                              : const Text(
-                                  'CREATE ROOM (HOST)',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // JOIN ROOM CARD (Guest)
-                TraditionalCard(
-                  borderColor: AppColors.leafGreen,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Row(
-                        children: [
-                          Icon(Icons.meeting_room, color: AppColors.leafGreen, size: 22),
-                          SizedBox(width: 8),
-                          Text(
-                            'JOIN EXISTING GAME',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w900,
-                              color: AppColors.darkBrown,
-                              letterSpacing: 0.8,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Enter the 6-character room code provided by the host.',
-                        style: TextStyle(fontSize: 12.5, color: AppColors.darkBrown),
-                      ),
-                      const SizedBox(height: 14),
-
-                      // Room Code Entry Input Box
-                      TextField(
-                        controller: _roomIdController,
-                        textCapitalization: TextCapitalization.characters,
-                        maxLength: 6,
-                        style: const TextStyle(
-                          color: AppColors.darkBrown,
-                          fontWeight: FontWeight.w900,
-                          fontSize: 18,
-                          letterSpacing: 3,
-                        ),
-                        textAlign: TextAlign.center,
-                        decoration: InputDecoration(
-                          hintText: 'A B C 1 2 3',
-                          counterText: '',
-                          filled: true,
-                          fillColor: Colors.white,
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.leafGreen, width: 1.5),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: const BorderSide(color: AppColors.leafGreen, width: 2),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      SizedBox(
-                        width: double.infinity,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.leafGreen,
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 3,
-                          ),
-                          onPressed: _isJoiningRoom ? null : _joinRoom,
-                          child: _isJoiningRoom
-                              ? const RRLoader(size: 24)
-                              : const Text(
-                                  'JOIN GAME',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: 1.1,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-        ),
+
+          const SizedBox(height: 38),
+
+          // 3. WRITE NEW GAME SECTION
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Write new game',
+                style: GoogleFonts.kalam(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ballpointBlue,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const HandDrawnUnderline(
+                width: 160,
+                isDouble: false,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Start a fresh notebook sheet and gather 6 players.',
+                style: GoogleFonts.caveat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ballpointBlue,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: HandDrawnButton(
+                  label: 'CREATE GAME (HOST)',
+                  pencilFillColor: AppColors.pencilGreenFill,
+                  onPressed: _createRoom,
+                  isLoading: _isCreatingRoom,
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 42),
+
+          // 4. JOIN EXISTING GAME SECTION
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'JOIN EXISTING GAME',
+                style: GoogleFonts.kalam(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ballpointBlue,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 2),
+              const HandDrawnUnderline(
+                width: 230,
+                isDouble: false,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Enter the 6-character room code written in the notebook',
+                style: GoogleFonts.caveat(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ballpointBlue,
+                ),
+              ),
+              const SizedBox(height: 18),
+
+              // Room code input
+              HandDrawnTextField(
+                controller: _roomIdController,
+                hintText: 'Enter 6-character code...',
+                maxLength: 6,
+                textCapitalization: TextCapitalization.characters,
+                textAlign: TextAlign.center,
+                style: GoogleFonts.kalam(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 4.0,
+                  color: AppColors.ballpointBlue,
+                ),
+                hintStyle: GoogleFonts.caveat(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.ballpointBlue.withValues(alpha: 0.45),
+                ),
+              ),
+
+              const SizedBox(height: 20),
+              Center(
+                child: HandDrawnButton(
+                  label: 'JOIN GAME',
+                  pencilFillColor: AppColors.pencilBlueFill,
+                  onPressed: _joinRoom,
+                  isLoading: _isJoiningRoom,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 32),
+        ],
       ),
     );
   }

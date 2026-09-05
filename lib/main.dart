@@ -28,11 +28,11 @@ class RajaRaniApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Raja Rani',
       theme: ThemeData(
-        scaffoldBackgroundColor: AppColors.warmCream,
+        scaffoldBackgroundColor: AppColors.warmPaper,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: AppColors.terracotta,
-          primary: AppColors.terracotta,
-          surface: AppColors.cardCream,
+          seedColor: AppColors.ballpointBlue,
+          primary: AppColors.ballpointBlue,
+          surface: AppColors.paperWhite,
         ),
         useMaterial3: true,
       ),
@@ -40,3 +40,4 @@ class RajaRaniApp extends StatelessWidget {
     );
   }
 }
+

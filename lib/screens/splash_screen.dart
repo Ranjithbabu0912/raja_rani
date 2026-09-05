@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
+
 import '../utils/app_theme.dart';
-import '../widgets/kolam_painter.dart';
+import '../widgets/handdrawn_components.dart';
 import 'lobby_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -13,23 +15,29 @@ class SplashScreen extends StatefulWidget {
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
-  late final Animation<double> _fadeInAnimation;
-  late final Animation<double> _scaleAnimation;
+  late final Animation<double> _penAnimation;
+  late final Animation<double> _subtitleAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1400),
+      duration: const Duration(milliseconds: 1800),
     );
 
-    _fadeInAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
+    _penAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.0, 0.6, curve: Curves.easeOut),
+      ),
     );
 
-    _scaleAnimation = Tween<double>(begin: 0.9, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
+    _subtitleAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.5, 1.0, curve: Curves.easeIn),
+      ),
     );
 
     _controller.forward();
@@ -45,11 +53,12 @@ class _SplashScreenState extends State<SplashScreen>
   void _navigateToLobby() {
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) => const LobbyScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const LobbyScreen(),
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(opacity: animation, child: child);
         },
-        transitionDuration: const Duration(milliseconds: 600),
+        transitionDuration: const Duration(milliseconds: 500),
       ),
     );
   }
@@ -62,114 +71,140 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.warmCream,
-      body: GestureDetector(
+    return NotebookPaperPage(
+      child: GestureDetector(
         onTap: _navigateToLobby,
-        child: CustomPaint(
-          size: Size.infinite,
-          painter: const KolamCornerPainter(color: AppColors.terracotta, strokeWidth: 2.0),
-          child: Center(
-            child: FadeTransition(
-              opacity: _fadeInAnimation,
-              child: ScaleTransition(
-                scale: _scaleAnimation,
-                child: Padding(
-                  padding: const EdgeInsets.all(28.0),
-                  child: Column(
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.8,
+          child: AnimatedBuilder(
+            animation: _controller,
+            builder: (context, child) {
+              return Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Crown Doodles
+                  const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Traditional Invitation Frame Badge
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 28),
-                        decoration: BoxDecoration(
-                          color: AppColors.cardCream,
-                          borderRadius: BorderRadius.circular(24),
-                          border: Border.all(color: AppColors.terracotta, width: 2),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Color(0x293B2418),
-                              blurRadius: 16,
-                              spreadRadius: 2,
-                              offset: Offset(0, 6),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            // Kolam Mandala emblem
-                            const SizedBox(
-                              width: 80,
-                              height: 80,
-                              child: CustomPaint(
-                                painter: KolamMandalaPainter(
-                                  primaryColor: AppColors.terracotta,
-                                  secondaryColor: AppColors.turmeric,
+                      HandDrawnCrown(width: 34, height: 24),
+                      SizedBox(width: 48),
+                      HandDrawnCrown(width: 34, height: 24),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Animated Handwritten Title: RAJA RANI
+                  Opacity(
+                    opacity: _penAnimation.value,
+                    child: Transform.scale(
+                      scale: 0.9 + (_penAnimation.value * 0.1),
+                      child: Column(
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                '\\ \\ ',
+                                style: GoogleFonts.kalam(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.ballpointBlue
+                                      .withValues(alpha: 0.6),
                                 ),
                               ),
-                            ),
-                            const SizedBox(height: 20),
-                            const Text(
-                              'RAJA RANI',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 34,
-                                fontWeight: FontWeight.w900,
-                                color: AppColors.darkBrown,
-                                letterSpacing: 2.5,
+                              Text(
+                                'RAJA RANI',
+                                textAlign: TextAlign.center,
+                                style: GoogleFonts.kalam(
+                                  fontSize: 42,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppColors.ballpointBlue,
+                                  letterSpacing: 3.5,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Container(
-                              height: 2,
-                              width: 100,
-                              color: AppColors.terracotta,
-                            ),
-                            const SizedBox(height: 10),
-                            const Text(
-                              'Traditional Family Game',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.leafGreen,
-                                letterSpacing: 1.1,
+                              Text(
+                                ' / /',
+                                style: GoogleFonts.kalam(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppColors.ballpointBlue
+                                      .withValues(alpha: 0.6),
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'தமிழ் பாரம்பரிய விளையாட்டு',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: AppColors.darkBrown,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 40),
-                      const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.touch_app, color: AppColors.terracotta, size: 18),
-                          SizedBox(width: 8),
-                          Text(
-                            'Tap anywhere to start',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: AppColors.darkBrown,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+
+                          // Hand-drawn double red underline
+                          HandDrawnUnderline(
+                            width: 180 * _penAnimation.value,
+                            isDouble: true,
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
-                ),
-              ),
-            ),
+
+                  const SizedBox(height: 24),
+
+                  // Subtitle writing: "KANDUPUDI?"
+                  Opacity(
+                    opacity: _subtitleAnimation.value,
+                    child: Column(
+                      children: [
+                        Text(
+                          '"KANDUPUDI?"',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.kalam(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ballpointBlue,
+                            letterSpacing: 2.0,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          'Traditional Paper Role Game',
+                          textAlign: TextAlign.center,
+                          style: GoogleFonts.caveat(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.pencilGrey,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 64),
+
+                  // Tap prompt note
+                  Opacity(
+                    opacity: _subtitleAnimation.value,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Icon(
+                          Icons.touch_app,
+                          color: AppColors.penGreen,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Tap notebook sheet to start game...',
+                          style: GoogleFonts.caveat(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.penGreen,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ),

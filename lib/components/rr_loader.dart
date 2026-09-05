@@ -1,9 +1,9 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../utils/app_theme.dart';
-import '../widgets/kolam_painter.dart';
 
-/// Traditional Tamil Kolam Lotus Mandala Loader Component
-/// (Completely removes old RR text loader)
+/// Authentic Notebook-Paper Concept Loading Animation
+/// (Completely replaces old spinning ring/Kolam loader with theme-matched paper chit)
 class RRLoader extends StatefulWidget {
   final String? message;
   final double size;
@@ -29,7 +29,7 @@ class _RRLoaderState extends State<RRLoader>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2400),
+      duration: const Duration(milliseconds: 1800),
     )..repeat();
   }
 
@@ -39,47 +39,78 @@ class _RRLoaderState extends State<RRLoader>
     super.dispose();
   }
 
-  Widget _buildTraditionalKolamLoader() {
-    final double totalSize = widget.size + 24;
+  Widget _buildNotebookPaperLoader() {
+    final double scale = (widget.size / 70.0).clamp(0.6, 1.5);
 
-    return SizedBox(
-      width: totalSize,
-      height: totalSize,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Outer spinning terracotta ring
-          RotationTransition(
-            turns: _controller,
-            child: SizedBox(
-              width: totalSize,
-              height: totalSize,
-              child: CircularProgressIndicator(
-                strokeWidth: widget.size > 40 ? 3.5 : 2.5,
-                valueColor: const AlwaysStoppedAnimation<Color>(
-                  AppColors.terracotta,
-                ),
-                backgroundColor: AppColors.turmeric.withValues(alpha: 0.25),
-              ),
-            ),
-          ),
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final floatOffset = math.sin(_controller.value * 2 * math.pi) * 4.0;
+        final penXOffset = math.sin(_controller.value * 2 * math.pi) * 16.0;
 
-          // Central rotating Kolam Lotus mandala
-          RotationTransition(
-            turns: Tween<double>(begin: 1.0, end: 0.0).animate(_controller),
-            child: SizedBox(
-              width: widget.size,
-              height: widget.size,
-              child: const CustomPaint(
-                painter: KolamMandalaPainter(
-                  primaryColor: AppColors.terracotta,
-                  secondaryColor: AppColors.turmeric,
+        return Transform.translate(
+          offset: Offset(0, floatOffset),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Notebook Paper Logo Chit Container
+              Container(
+                width: 120 * scale,
+                height: 85 * scale,
+                decoration: BoxDecoration(
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 8 * scale,
+                      offset: Offset(2 * scale, 4 * scale),
+                    ),
+                  ],
+                ),
+                child: CustomPaint(
+                  painter: _NotebookPaperLoaderPainter(),
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Handwritten Logo Title
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'RAJA RANI',
+                            style: TextStyle(
+                              fontSize: 16 * scale,
+                              fontWeight: FontWeight.w900,
+                              letterSpacing: 1.5 * scale,
+                              color: AppColors.ballpointBlue,
+                            ),
+                          ),
+                          SizedBox(height: 2 * scale),
+                          Container(
+                            width: 60 * scale,
+                            height: 1.5 * scale,
+                            color: AppColors.blueRuling.withValues(alpha: 0.8),
+                          ),
+                        ],
+                      ),
+
+                      // Animated Ballpoint Pen Nib writing across logo
+                      Positioned(
+                        right: (14 * scale) + penXOffset,
+                        bottom: 12 * scale,
+                        child: Icon(
+                          Icons.edit,
+                          size: 16 * scale,
+                          color: AppColors.ballpointBlue,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 
@@ -89,17 +120,18 @@ class _RRLoaderState extends State<RRLoader>
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildTraditionalKolamLoader(),
+        _buildNotebookPaperLoader(),
         if (widget.message != null && widget.message!.isNotEmpty) ...[
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Text(
             widget.message!,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 15,
+              fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: AppColors.darkBrown,
+              color: AppColors.inkBlack,
               letterSpacing: 0.5,
+              fontStyle: FontStyle.italic,
             ),
           ),
         ],
@@ -108,7 +140,7 @@ class _RRLoaderState extends State<RRLoader>
 
     if (widget.fullScreen) {
       return Scaffold(
-        backgroundColor: AppColors.warmCream,
+        backgroundColor: AppColors.warmPaper,
         body: Center(child: content),
       );
     }
@@ -116,3 +148,69 @@ class _RRLoaderState extends State<RRLoader>
     return Center(child: content);
   }
 }
+
+/// Custom Painter for the Notebook Paper Logo Loading Chit
+class _NotebookPaperLoaderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Path path = Path();
+    final double w = size.width;
+    final double h = size.height;
+
+    // Irregular torn notebook paper edges
+    path.moveTo(0, 0);
+    for (double x = 0; x < w; x += 6) {
+      final dy = (x % 12 == 0) ? -1.0 : 0.8;
+      path.lineTo(x + 3, dy);
+    }
+    path.lineTo(w, 0);
+
+    for (double y = 0; y < h; y += 6) {
+      final dx = (y % 12 == 0) ? w + 1.0 : w - 0.8;
+      path.lineTo(dx, y + 3);
+    }
+    path.lineTo(w, h);
+
+    path.lineTo(0, h);
+
+    for (double y = h; y > 0; y -= 6) {
+      final dx = (y % 12 == 0) ? -1.0 : 0.8;
+      path.lineTo(dx, y - 3);
+    }
+    path.close();
+
+    // Fill Warm Notebook Paper Body
+    final paperPaint = Paint()
+      ..color = const Color(0xFFFFFDF8)
+      ..style = PaintingStyle.fill;
+    canvas.drawPath(path, paperPaint);
+
+    // Blue horizontal ruling lines
+    final bluePaint = Paint()
+      ..color = AppColors.blueRuling.withValues(alpha: 0.65)
+      ..strokeWidth = 0.8
+      ..style = PaintingStyle.stroke;
+
+    for (double y = 14; y < h - 4; y += 14) {
+      canvas.drawLine(Offset(4, y), Offset(w - 4, y), bluePaint);
+    }
+
+    // Red vertical margin line
+    final redPaint = Paint()
+      ..color = AppColors.redMargin.withValues(alpha: 0.6)
+      ..strokeWidth = 0.9
+      ..style = PaintingStyle.stroke;
+    canvas.drawLine(const Offset(14, 0), Offset(14, h), redPaint);
+
+    // Outer notebook border stroke
+    final strokePaint = Paint()
+      ..color = AppColors.blueRuling.withValues(alpha: 0.6)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    canvas.drawPath(path, strokePaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
